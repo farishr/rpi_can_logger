@@ -116,10 +116,10 @@ def main():
     try:
         bus = can.interface.Bus(channel=cfg["iface"], interface="socketcan")
     except Exception as e:
-        print(f"[ERR] Failed to open CAN interface '{cfg["iface"]}': {e}", file=sys.stderr)
+        print(f"[ERR] Failed to open CAN interface '{cfg['iface']}': {e}", file=sys.stderr)
         sys.exit(2)
 
-    print(f"[INFO] CAN interface '{cfg["iface"]}' opened. Waiting for frames... (Ctrl+C to stop)")
+    print(f"[INFO] CAN interface '{cfg['iface']}' opened. Waiting for frames... (Ctrl+C to stop)")
 
     last_flush = time.monotonic()       # Getting the latest time
 
