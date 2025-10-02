@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 import can
 import cantools
+import yaml
+from typing import Any, Dict, Tuple
 
 # For clean exit from program:
 STOP = False
@@ -36,31 +38,62 @@ def open_decoded_csv(dec_path: Path, decoded_flat: bool):
 def hex_id(msg_id: int) -> str:
     return f"0x{msg_id:X}"
 
+def load_config(path: Path) -> Dict[str, Any]:
+    with path.open("r") as f:
+        data = yaml.safe_load(f) or {}
+    if "dbc" not in data or not data["dbc"]:
+        print("[ERR] 'dbc' must be set in config.", file=sys.stderr)
+        sys.exit(2)
+    # Defaults (if missing)
+    data.setdefault("iface", "vcan0")
+    data.setdefault("to_file", False)
+    data.setdefault("to_console", True)
+    data.setdefault("out_dir", "./logs")
+    data.setdefault("base_name", "")
+    data.setdefault("flush_sec", 2.0)
+    data.setdefault("decoded_flat", False)
+    data.setdefault("drop_unknown", False)
+    return data
+
+def merge_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
+    """Allow optional CLI overrides on top of the file."""
+    ov = dict(cfg)
+    # Strings
+    if args.iface: ov["iface"] = args.iface
+    if args.out_dir: ov["out_dir"] = args.out_dir
+    if args.base_name is not None: ov["base_name"] = args.base_name
+    # Floats
+    if args.flush_sec is not None: ov["flush_sec"] = float(args.flush_sec)
+    # Bools (tri-state: None means 'don't override')
+    if args.to_file is not None: ov["to_file"] = args.to_file
+    if args.to_console is not None: ov["to_console"] = args.to_console
+    if args.decoded_flat is not None: ov["decoded_flat"] = args.decoded_flat
+    if args.drop_unknown is not None: ov["drop_unknown"] = args.drop_unknown
+    # DBC (override path if passed)
+    if args.dbc: ov["dbc"] = args.dbc
+    return ov
 
 def main():
-    ap = argparse.ArgumentParser(description="Real-time per-frame CAN decoder with DBC (decoded-only, selectable sinks).")
-    ap.add_argument("--dbc", required=True, help="DBC file path")
-    ap.add_argument("--iface", default="can0", help="SocketCAN interface (default: can0)")
+    ap = argparse.ArgumentParser(description="Real-time per-frame CAN decoder with DBC (decoded-only, config-driven).")
+    ap.add_argument("--config", required=True, help="Path to YAML config file")
 
-    # Sink controls
-    ap.add_argument("--to-file", action="store_true", help="Write decoded data to CSV")
-    ap.add_argument("--to-console", action="store_true", help="Print decoded data to stdout")
-
-    # File options
-    ap.add_argument("--out-dir", default="./logs", help="Output directory (default: ./logs)")
-    ap.add_argument("--base-name", default="", help="Base name for output file. If empty, use timestamped base.")
-    ap.add_argument("--flush-sec", type=float, default=2.0, help="Flush interval for CSV (default: 2s)")
-
-    # Formatting
-    ap.add_argument("--decoded-flat", action="store_true",
-                    help="One row per message with signals JSON. Default is tidy (one row per signal).")
-    ap.add_argument("--drop-unknown", action="store_true",
-                    help="If set, frames without a matching DBC entry are not written/printed.")
+    # Optional overrides (all are None by default; only applied if provided)
+    ap.add_argument("--dbc", help="Override: DBC file path")
+    ap.add_argument("--iface", help="Override: SocketCAN interface (e.g., can0)")
+    ap.add_argument("--to-file", type=lambda s: s.lower() in ("1","true","yes","y"), help="Override: true/false")
+    ap.add_argument("--to-console", type=lambda s: s.lower() in ("1","true","yes","y"), help="Override: true/false")
+    ap.add_argument("--out-dir", help="Override: output directory")
+    ap.add_argument("--base-name", help="Override: base file name ('' -> timestamped)")
+    ap.add_argument("--flush-sec", type=float, help="Override: flush interval (seconds)")
+    ap.add_argument("--decoded-flat", type=lambda s: s.lower() in ("1","true","yes","y"), help="Override: true/false")
+    ap.add_argument("--drop-unknown", type=lambda s: s.lower() in ("1","true","yes","y"), help="Override: true/false")
 
     args = ap.parse_args()
 
-    if not args.to_file and not args.to_console:
-        print("[WARN] Neither --to-file nor --to-console selected. Nothing will be emitted (decode-only dry run).", file=sys.stderr)
+    # Load + merge config
+    cfg_path = Path(args.config)
+    cfg = load_config(cfg_path)
+    cfg = merge_overrides(cfg, args)
 
 
     # Load DBC

@@ -1,0 +1,18 @@
+# ==== Required ====
+dbc: "test.dbc"
+
+# ==== CAN ====
+iface: "vcan0"           # CAN interface
+
+# ==== Sinks (choose one or both) ====
+to_file: false           # write decoded CSV
+to_console: true       # print decoded lines to stdout
+
+# ==== File options (only used if to_file = true) ====
+out_dir: "/logs"
+base_name: ""           # "" -> auto timestamped canlog_YYYYMMDD_HHMMSS
+flush_sec: 2.0
+
+# ==== Formatting / policy ====
+decoded_flat: true      # true: one row per message (signals as JSON); false: one row per signal
+drop_unknown: false     # true: skip frames not found in DBC
