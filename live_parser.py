@@ -95,43 +95,46 @@ def main():
     cfg = load_config(cfg_path)
     cfg = merge_overrides(cfg, args)
 
+    if not cfg["to_file"] and not cfg["to_console"]:
+        print("[WARN] Neither to_file nor to_console is enabled. Running decode dry-run (no output).", file=sys.stderr)
+
 
     # Load DBC
-    db = cantools.database.load_file(args.dbc)
+    db = cantools.database.load_file(cfg["dbc"])
     msgs_by_id = {m.frame_id: m for m in db.messages}
-    print(f"[INFO] Loaded DBC with {len(msgs_by_id)} messages from: {args.dbc}")
+    print(f"[INFO] Loaded DBC with {len(msgs_by_id)} messages from: {cfg["dbc"]}")
 
     # Prepare sink(s)
     dec_f = dec_w = None
-    if args.to_file:
-        out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
-        dec_path = make_decoded_path(out_dir, args.base_name)          # Creating the the csv file to write into
-        dec_f, dec_w = open_decoded_csv(dec_path, args.decoded_flat)    
+    if cfg["to_file"]:
+        out_dir = Path(cfg["out_dir"]); out_dir.mkdir(parents=True, exist_ok=True)
+        dec_path = make_decoded_path(out_dir, cfg["base_name"])          # Creating the the csv file to write into
+        dec_f, dec_w = open_decoded_csv(dec_path, cfg["decoded_flat"])    
         print(f"[INFO] Writing DECODED to: {dec_path}")
 
     # Open CAN bus
     try:
-        bus = can.interface.Bus(channel=args.iface, interface="socketcan")
+        bus = can.interface.Bus(channel=cfg["iface"], interface="socketcan")
     except Exception as e:
-        print(f"[ERR] Failed to open CAN interface '{args.iface}': {e}", file=sys.stderr)
+        print(f"[ERR] Failed to open CAN interface '{cfg["iface"]}': {e}", file=sys.stderr)
         sys.exit(2)
 
-    print(f"[INFO] CAN interface '{args.iface}' opened. Waiting for frames... (Ctrl+C to stop)")
+    print(f"[INFO] CAN interface '{cfg["iface"]}' opened. Waiting for frames... (Ctrl+C to stop)")
 
     last_flush = time.monotonic()       # Getting the latest time
 
     def sink_decoded_row_flat(ts_iso, id_hex_str, msg_name, xrcc_num, batt_num, signals_dict, msg_comment):
-        if args.to_file:
+        if cfg["to_file"]:
             dec_w.writerow([ts_iso, id_hex_str, msg_name, xrcc_num, batt_num,
                             json.dumps(signals_dict, separators=(",", ":")),
                             msg_comment])
-        if args.to_console:
+        if cfg["to_console"]:
             print(f"{ts_iso} {id_hex_str} {msg_name} xrcc={xrcc_num} batt={batt_num} signals={signals_dict}")
 
     def sink_decoded_row_tidy(ts_iso, id_hex_str, msg_name, xrcc_num, batt_num, sig_name, value, sig_comment, msg_comment):
-        if args.to_file:
+        if cfg["to_file"]:
             dec_w.writerow([ts_iso, id_hex_str, msg_name, xrcc_num, batt_num, sig_name, value, sig_comment, msg_comment])
-        if args.to_console:
+        if cfg["to_console"]:
             suffix = f"  # {sig_comment}" if sig_comment else ""
             print(f"{ts_iso} {id_hex_str} {msg_name} xrcc={xrcc_num} batt={batt_num} {sig_name}={value}{suffix}")
 
@@ -141,7 +144,7 @@ def main():
             now = time.monotonic()
 
             # Periodic flush (file sink only)
-            if args.to_file and now - last_flush >= args.flush_sec:
+            if cfg["to_file"] and now - last_flush >= cfg["flush_sec"]:
                 dec_f.flush()
                 last_flush = now
 
@@ -164,7 +167,7 @@ def main():
             def emit_message(message_obj, decoded_dict):
                 msg_name = message_obj.name
                 msg_comment = getattr(message_obj, "comment", "") or ""
-                if args.decoded_flat:
+                if cfg["decoded_flat"]:
                     sink_decoded_row_flat(ts_iso, id_hex_str, msg_name, xrcc_num, batt_num, decoded_dict, msg_comment)
                 else:
                     for sig in message_obj.signals:
@@ -185,37 +188,37 @@ def main():
                         decoded = message_obj.decode(data_bytes, decode_choices=True, scaling=True)
                         emit_message(message_obj, decoded)
                     else:
-                        if not args.drop_unknown:
-                            if args.decoded_flat:
+                        if not cfg["drop_unknown"]:
+                            if cfg["decoded_flat"]:
                                 sink_decoded_row_flat(ts_iso, id_hex_str, "UNKNOWN", xrcc_num, batt_num, {}, "")
                             else:
                                 # Print a single tidy line marking unknown (no raw payload stored)
-                                if args.to_console:
+                                if cfg["to_console"]:
                                     print(f"{ts_iso} {id_hex_str} UNKNOWN xrcc={xrcc_num} batt={batt_num}")
-                                if args.to_file:
+                                if cfg["to_file"]:
                                     dec_w.writerow([ts_iso, id_hex_str, "UNKNOWN", xrcc_num, batt_num, "", "", "", ""])
             except Exception as e:
                 # Emission for decode errors without raw leakage
-                if args.decoded_flat:
-                    if args.to_file:
+                if cfg["decoded_flat"]:
+                    if cfg["to_file"]:
                         dec_w.writerow([ts_iso, id_hex_str, "DECODE_ERROR", xrcc_num, batt_num,
                                         json.dumps({"error": str(e)}, separators=(",", ":")), ""])
-                    if args.to_console:
+                    if cfg["to_console"]:
                         print(f"{ts_iso} {id_hex_str} DECODE_ERROR xrcc={xrcc_num} batt={batt_num} error={e}")
                 else:
-                    if args.to_file:
+                    if cfg["to_file"]:
                         dec_w.writerow([ts_iso, id_hex_str, "DECODE_ERROR", xrcc_num, batt_num, "error", str(e), "", ""])
-                    if args.to_console:
+                    if cfg["to_console"]:
                         print(f"{ts_iso} {id_hex_str} DECODE_ERROR xrcc={xrcc_num} batt={batt_num} error={e}")
 
             # Flush again after emission if interval elapsed during work
-            if args.to_file and time.monotonic() - last_flush >= args.flush_sec:
+            if cfg["to_file"] and time.monotonic() - last_flush >= cfg["flush_sec"]:
                 dec_f.flush()
                 last_flush = time.monotonic()
     
     finally:
         try:
-            if args.to_file:
+            if cfg["to_file"]:
                 dec_f.flush(); dec_f.close()
         except Exception:
             pass
