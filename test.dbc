@@ -36,7 +36,7 @@ BS_:
 BU_:
 
 
-BO_ 123 TEST_MSG: 8 Vector__XXX
+BO_ 128 TEST_MSG: 8 Vector__XXX
  SG_ Mux M : 0|4@1+ (1,0) [0|0] "" Vector__XXX
  SG_ ResponseID : 4|4@1+ (1,0) [0|0] "" Vector__XXX
  SG_ TestValA m0 : 8|32@1+ (1,0) [0|0] "" Vector__XXX

@@ -8,7 +8,7 @@ db = cantools.database.load_file("../test.dbc")
 
 message = db.get_message_by_name("TEST_MSG")
 
-bus = can.interface.Bus(bustype=bus_type, channel=channel, can_filters=None)
+bus = can.interface.Bus(interface=bus_type, channel=channel, can_filters=None)
 
 i = 0
 
