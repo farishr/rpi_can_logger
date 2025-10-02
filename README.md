@@ -1,6 +1,5 @@
-```markdown
 # Raspberry Pi Real-Time CAN Decoder (DBC, config-driven)
-
+## !! Currently only works on VCAN !!
 A headless, per-frame **CAN decoder** for Raspberry Pi using SocketCAN + DBC.  
 It reads from a configured CAN interface (e.g., `can0`), decodes each frame **as it arrives** using your DBC via `cantools`, and outputs **decoded data only** (no raw payload persisted) to a CSV file, the console, or both.
 
@@ -23,8 +22,6 @@ It reads from a configured CAN interface (e.g., `can0`), decodes each frame **as
 ---
 
 ## Repository layout
-
-```
 
 rpi_can_logger/
 ├─ live_parser.py              # Real-time, config-driven decoder (decoded only)
@@ -202,29 +199,6 @@ Example rows (one per signal):
 
 ---
 
-## Troubleshooting
-
-* **`TypeError: expected str ... not NoneType` (cantools load_file)**
-  The script tried to load a DBC path that was empty. Ensure `dbc:` is set in YAML (or use `--dbc` override).
-
-* **F-string quoting error (`unmatched '['`)**
-  Inside an f-string, use single quotes for dict keys, e.g. `cfg['dbc']`, or assign `dbc_path = cfg["dbc"]` first.
-
-* **No output appears**
-  At least one sink must be enabled. In YAML set `to_file: true` or `to_console: true` (or override on CLI).
-
-* **`ip link` permission errors**
-  Bring up `can0` with `sudo`, or set up a boot-time script/service. The decoder itself doesn’t require root once the interface is up.
-
-* **Performance / high bus load**
-  Prefer `decoded_flat: true` for lower I/O overhead. Consider writing to a fast USB drive and increasing `flush_sec` to `5–10` seconds.
-
-
----
-
 ## License
 
 Choose a license (e.g., MIT) and add a `LICENSE` file.
-
-```
-```
