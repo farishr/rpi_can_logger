@@ -102,7 +102,7 @@ def main():
     # Load DBC
     db = cantools.database.load_file(cfg["dbc"])
     msgs_by_id = {m.frame_id: m for m in db.messages}
-    print(f"[INFO] Loaded DBC with {len(msgs_by_id)} messages from: {cfg["dbc"]}")
+    print(f"[INFO] Loaded DBC with {len(msgs_by_id)} messages from: {cfg['dbc']}")
 
     # Prepare sink(s)
     dec_f = dec_w = None
