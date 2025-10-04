@@ -6,3 +6,12 @@ sudo ip link set up vcan0
 # Details about the vcan
 ip -details link show vcan0
 
+# Start WiFi hotspot
+sudo systemctl start NetworkManager.service
+sudo nmcli device wifi hotspot ssid can_logger password password
+
+#Disabling hotspot
+sudo nmcli device disconnect wlan0
+sudo systemctl start dhcpcd.service		# Starting Wifi Client
+ 
+
