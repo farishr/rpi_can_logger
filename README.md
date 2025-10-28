@@ -123,7 +123,7 @@ drop_unknown: false    # true: skip frames not present in DBC
 ## Running the decoder
 
 ```bash
-python3 live_parser.py --config config/config.yaml
+python3 live_parser.py --config config.yaml
 ```
 
 ### Optional CLI overrides (without editing YAML)
